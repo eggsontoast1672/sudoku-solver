@@ -67,6 +67,10 @@ impl Board {
         }
     }
 
+    pub const fn get_cell_index(&self, index: usize) -> Option<u8> {
+        self.cells[index]
+    }
+
     /// Retrieve an entire row.
     ///
     /// # Panics

@@ -4,6 +4,7 @@ mod solver;
 use raylib::prelude::*;
 
 use board::Board;
+use solver::Solver;
 
 const BOARD: &str = r"
     732 1__ _4_
@@ -22,12 +23,13 @@ const BOARD: &str = r"
 fn main() {
     let (mut rl, thread) = raylib::init().size(600, 600).build();
     let mut board = BOARD.parse::<Board>().unwrap();
-
-    solver::solve(&mut board);
+    let mut solver = Solver::new();
 
     rl.set_target_fps(60);
 
     while !rl.window_should_close() {
+        solver.step(&mut board);
+
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::WHITE);
         board::draw_board(
