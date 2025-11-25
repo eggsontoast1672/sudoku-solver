@@ -3,6 +3,87 @@ use std::hash::Hash;
 
 use raylib::prelude::*;
 
+/// An entry for a cell of the Sudoku board.
+///
+/// Each square of the board can contain a digit from 1 to 9. This enum ensures that no invalid
+/// digit can be represented inside of the board.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum Entry {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+}
+
+impl Entry {
+    /// Get the successor of an entry.
+    ///
+    /// An entry is just a number, so this function retrieves the Peano-style successor. Naturally,
+    /// there is no valid entry larger than 9, so attempting to get the successor of 9 will return
+    /// [`None`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sudoku_solver::board::Entry;
+    ///
+    /// assert_eq!(Entry::One.successor(), Some(Entry::Two));
+    /// assert_eq!(Entry::Five.successor(), Some(Entry::Six));
+    /// assert_eq!(Entry::Nine.successor(), None);
+    /// ```
+    pub fn successor(&self) -> Option<Self> {
+        let number: i32 = self.clone().into();
+        Self::try_from(number + 1).ok()
+    }
+}
+
+impl TryFrom<i32> for Entry {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Entry, Self::Error> {
+        match value {
+            1 => Ok(Entry::One),
+            2 => Ok(Entry::Two),
+            3 => Ok(Entry::Three),
+            4 => Ok(Entry::Four),
+            5 => Ok(Entry::Five),
+            6 => Ok(Entry::Six),
+            7 => Ok(Entry::Seven),
+            8 => Ok(Entry::Eight),
+            9 => Ok(Entry::Nine),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Into<i32> for Entry {
+    fn into(self) -> i32 {
+        match self {
+            Self::One => 1,
+            Self::Two => 2,
+            Self::Three => 3,
+            Self::Four => 4,
+            Self::Five => 5,
+            Self::Six => 6,
+            Self::Seven => 7,
+            Self::Eight => 8,
+            Self::Nine => 9,
+        }
+    }
+}
+
+impl std::fmt::Display for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Into::<i32>::into(*self).fmt(f)
+    }
+}
+
 /// Convert a big index into a small index.
 ///
 /// This function converts the index of a big cell into the index of a small cell by taking the
@@ -37,7 +118,7 @@ where
 /// row, column, or 3x3 subgrid.
 #[derive(Debug)]
 pub struct Board {
-    pub cells: [Option<u8>; 81],
+    pub cells: [Option<Entry>; 81],
 }
 
 impl Board {
@@ -55,7 +136,7 @@ impl Board {
     ///
     /// If either the row or the column is at least 9 (meaning the cell is outside of the board),
     /// this function panics.
-    pub const fn get_cell(&self, row: usize, column: usize) -> Option<u8> {
+    pub const fn get_cell(&self, row: usize, column: usize) -> Option<Entry> {
         // We can't use the get method on arrays since it's not enough that the index computation
         // doesn't overflow. We need the row and column to individually be valid. For example, if
         // row = 2 and column = 1000000, the index would be in range, but clearly the column is not
@@ -67,7 +148,7 @@ impl Board {
         }
     }
 
-    pub const fn get_cell_index(&self, index: usize) -> Option<u8> {
+    pub const fn get_cell_index(&self, index: usize) -> Option<Entry> {
         self.cells[index]
     }
 
@@ -76,7 +157,7 @@ impl Board {
     /// # Panics
     ///
     /// This function panics if the row is at least 9.
-    pub fn get_row(&self, row: usize) -> Vec<Option<u8>> {
+    pub fn get_row(&self, row: usize) -> Vec<Option<Entry>> {
         (0..9).map(|x| self.cells[x + row * 9]).collect()
     }
 
@@ -85,7 +166,7 @@ impl Board {
     /// # Panics
     ///
     /// This function panics if the column is at least 9.
-    pub fn get_column(&self, column: usize) -> Vec<Option<u8>> {
+    pub fn get_column(&self, column: usize) -> Vec<Option<Entry>> {
         (0..9).map(|x| self.cells[x * 9 + column]).collect()
     }
 
@@ -98,7 +179,7 @@ impl Board {
     /// # Panics
     ///
     /// This function panics if the index is at least 9.
-    pub fn get_big_cell(&self, index: usize) -> Vec<Option<u8>> {
+    pub fn get_big_cell(&self, index: usize) -> Vec<Option<Entry>> {
         let small_index = as_small_index(index);
         vec![
             self.cells[small_index],
@@ -119,11 +200,9 @@ impl Board {
     /// than 80. Additionally, all cells must be in the range [1, 9], so if the supplied entry is
     /// not in that range, the funcion will do nothing. To clear the entry at the target index, you
     /// can pass [`None`].
-    pub fn set_cell_index(&mut self, index: usize, entry: Option<u8>) {
+    pub fn set_cell_index(&mut self, index: usize, entry: Option<Entry>) {
         if index < self.cells.len() {
-            if let Some(1..=9) | None = entry {
-                self.cells[index] = entry;
-            }
+            self.cells[index] = entry;
         }
     }
 
@@ -172,19 +251,19 @@ impl std::str::FromStr for Board {
     /// strings "16_9____52___456_9_9__3_7_2 6____7_939___1___747_3_9__8
     /// 7_2_8_956__629___4__9_____1" and
     ///
-    ///     +-------+-------+-------+
-    ///     | 1 6 _ | 9 _ _ | _ _ 5 |
-    ///     | 2 _ _ | _ 4 5 | 6 _ 9 |
-    ///     | _ 9 _ | _ 3 _ | 7 _ 2 |
-    ///     +-------+-------+-------+
-    ///     | 6 _ _ | _ _ 7 | _ 9 3 |
-    ///     | 9 _ _ | _ 1 _ | _ _ 7 |
-    ///     | 4 7 _ | 3 _ 9 | _ _ 8 |
-    ///     +-------+-------+-------+
-    ///     | 7 _ 2 | _ 8 _ | 9 5 6 |
-    ///     | _ _ 6 | 2 9 _ | _ _ 4 |
-    ///     | _ _ 9 | _ _ _ | _ _ 1 |
-    ///     +-------+-------+-------+
+    /// +-------+-------+-------+
+    /// | 1 6 _ | 9 _ _ | _ _ 5 |
+    /// | 2 _ _ | _ 4 5 | 6 _ 9 |
+    /// | _ 9 _ | _ 3 _ | 7 _ 2 |
+    /// +-------+-------+-------+
+    /// | 6 _ _ | _ _ 7 | _ 9 3 |
+    /// | 9 _ _ | _ 1 _ | _ _ 7 |
+    /// | 4 7 _ | 3 _ 9 | _ _ 8 |
+    /// +-------+-------+-------+
+    /// | 7 _ 2 | _ 8 _ | 9 5 6 |
+    /// | _ _ 6 | 2 9 _ | _ _ 4 |
+    /// | _ _ 9 | _ _ _ | _ _ 1 |
+    /// +-------+-------+-------+
     ///
     /// parse to the same board.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -197,7 +276,8 @@ impl std::str::FromStr for Board {
                     index += 1;
                 }
                 '1'..='9' => {
-                    board.cells[index] = Some(c as u8 - '0' as u8);
+                    let entry = Entry::try_from(c as i32 - '0' as i32).unwrap();
+                    board.cells[index] = Some(entry);
                     index += 1;
                 }
                 _ => {}
@@ -243,7 +323,7 @@ const LINE_WIDTH: f32 = 10.0;
 ///
 /// The outline helps to see the big cells. Without it, the small cells floating around on the
 /// screen are pretty hard to visually parse.
-fn draw_outline(d: &mut RaylibDrawHandle, rect: Rectangle) {
+fn draw_board_outline(d: &mut RaylibDrawHandle, rect: Rectangle) {
     // This looks odd, but it just makes sure that the lines are evenly spaced horizontally and
     // vertically.
     let x_jump = (rect.width - LINE_WIDTH) / 3.0;
@@ -292,11 +372,7 @@ pub fn draw_board(d: &mut RaylibDrawHandle, board_rect: Rectangle, board: &Board
             let Some(cell_entry) = board.get_cell(y, x) else {
                 continue;
             };
-            let color = color_from_digit(cell_entry as i32).unwrap();
-
-            // println!("line_width_offset({x}) = {}", line_width_offset(x));
-            // println!("line_width_offset({y}) = {}", line_width_offset(y));
-
+            let color = color_from_digit(cell_entry.into()).unwrap();
             let cell_rect = Rectangle {
                 x: x as f32 * cell_width + line_width_offset(x),
                 y: y as f32 * cell_height + line_width_offset(y),
@@ -315,7 +391,7 @@ pub fn draw_board(d: &mut RaylibDrawHandle, board_rect: Rectangle, board: &Board
         }
     }
 
-    draw_outline(d, board_rect);
+    draw_board_outline(d, board_rect);
 }
 
 #[cfg(test)]
@@ -347,33 +423,48 @@ mod tests {
     fn test_get_row() {
         let board = create_board();
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_row(0),
             vec![
-                Some(1), Some(6), None,
-                Some(9), None,    None,
-                None,    None,    Some(5),
+                Some(Entry::One),
+                Some(Entry::Six),
+                None,
+                Some(Entry::Nine),
+                None,
+                None,
+                None,
+                None,
+                Some(Entry::Five),
             ]
         );
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_row(4),
             vec![
-                Some(9), None,    None,
-                None,    Some(1), None,
-                None,    None,    Some(7),
+                Some(Entry::Nine),
+                None,
+                None,
+                None,
+                Some(Entry::One),
+                None,
+                None,
+                None,
+                Some(Entry::Seven),
             ]
         );
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_row(6),
             vec![
-                Some(7), None,    Some(2),
-                None,    Some(8), None,
-                Some(9), Some(5), Some(6),
+                Some(Entry::Seven),
+                None,
+                Some(Entry::Two),
+                None,
+                Some(Entry::Eight),
+                None,
+                Some(Entry::Nine),
+                Some(Entry::Five),
+                Some(Entry::Six),
             ]
         );
     }
@@ -382,33 +473,48 @@ mod tests {
     fn test_get_column() {
         let board = create_board();
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_column(0),
             vec![
-                Some(1), Some(2), None,
-                Some(6), Some(9), Some(4),
-                Some(7), None,    None,
+                Some(Entry::One),
+                Some(Entry::Two),
+                None,
+                Some(Entry::Six),
+                Some(Entry::Nine),
+                Some(Entry::Four),
+                Some(Entry::Seven),
+                None,
+                None,
             ]
         );
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_column(1),
             vec![
-                Some(6), None, Some(9),
-                None,    None, Some(7),
-                None,    None, None,
+                Some(Entry::Six),
+                None,
+                Some(Entry::Nine),
+                None,
+                None,
+                Some(Entry::Seven),
+                None,
+                None,
+                None,
             ]
         );
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_column(8),
             vec![
-                Some(5), Some(9), Some(2),
-                Some(3), Some(7), Some(8),
-                Some(6), Some(4), Some(1),
+                Some(Entry::Five),
+                Some(Entry::Nine),
+                Some(Entry::Two),
+                Some(Entry::Three),
+                Some(Entry::Seven),
+                Some(Entry::Eight),
+                Some(Entry::Six),
+                Some(Entry::Four),
+                Some(Entry::One),
             ]
         );
     }
@@ -417,33 +523,48 @@ mod tests {
     fn test_get_big_cell() {
         let board = create_board();
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_big_cell(2),
             vec![
-                None,    None, Some(5),
-                Some(6), None, Some(9),
-                Some(7), None, Some(2),
+                None,
+                None,
+                Some(Entry::Five),
+                Some(Entry::Six),
+                None,
+                Some(Entry::Nine),
+                Some(Entry::Seven),
+                None,
+                Some(Entry::Two),
             ]
         );
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_big_cell(5),
             vec![
-                None, Some(9), Some(3),
-                None, None,    Some(7),
-                None, None,    Some(8),
+                None,
+                Some(Entry::Nine),
+                Some(Entry::Three),
+                None,
+                None,
+                Some(Entry::Seven),
+                None,
+                None,
+                Some(Entry::Eight),
             ]
         );
 
-        #[rustfmt::skip]
         assert_eq!(
             board.get_big_cell(7),
             vec![
-                None,    Some(8), None,
-                Some(2), Some(9), None,
-                None,    None,    None,
+                None,
+                Some(Entry::Eight),
+                None,
+                Some(Entry::Two),
+                Some(Entry::Nine),
+                None,
+                None,
+                None,
+                None,
             ]
         );
     }
@@ -452,7 +573,7 @@ mod tests {
     fn test_is_valid() {
         let mut board = create_board();
         assert!(board.is_valid());
-        board.set_cell_index(2, Some(6));
+        board.set_cell_index(2, Some(Entry::Six));
         assert!(!board.is_valid());
     }
 }

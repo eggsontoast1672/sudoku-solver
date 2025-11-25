@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::board::{Board, Entry};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct AttemptLocation(usize);
@@ -20,7 +20,9 @@ pub fn solve(board: &mut Board) -> bool {
         return board.is_valid();
     };
 
-    for entry in 1..=9 {
+    for number in 1..=9 {
+        // The unwrap call will never panic since we are only inputting numbers in the range 1..=9
+        let entry = Entry::try_from(number).unwrap();
         board.set_cell_index(index, Some(entry));
         if !board.is_valid() {
             continue;
@@ -68,8 +70,8 @@ impl Solver {
                 .get_cell_index(last_index)
                 .expect("there should be a cell here");
 
-            if last_entry != 9 {
-                board.set_cell_index(last_index, Some(last_entry + 1));
+            if last_entry != Entry::Nine {
+                board.set_cell_index(last_index, Some(last_entry.successor().unwrap()));
                 self.attempt_stack.push(AttemptLocation(last_index));
             } else {
                 board.set_cell_index(last_index, None);
@@ -89,8 +91,8 @@ impl Solver {
                 .get_cell_index(last_index)
                 .expect("there should be a cell here");
 
-            if last_entry != 9 {
-                board.set_cell_index(last_index, Some(last_entry + 1));
+            if last_entry != Entry::Nine {
+                board.set_cell_index(last_index, Some(last_entry.successor().unwrap()));
                 self.attempt_stack.push(AttemptLocation(last_index));
                 self.backtracking = false;
             } else {
@@ -111,7 +113,7 @@ impl Solver {
         // If there is an unfilled square, we need to try to fill it. But with what? The current
         // attempt member tells us what we have previously tried. We want to try the next one after
         // that.
-        board.set_cell_index(index, Some(1));
+        board.set_cell_index(index, Some(Entry::One));
         self.attempt_stack.push(AttemptLocation(index));
         false
     }
