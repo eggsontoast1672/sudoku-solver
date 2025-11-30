@@ -1,44 +1,44 @@
 use raylib::prelude::*;
 
-use sudoku_solver::board::{self, Board};
+use sudoku_solver::board::Board;
+use sudoku_solver::graphics::GraphicsState;
 use sudoku_solver::solver::Solver;
 
-const BOARD: &str = r"
-    732 1__ _4_
-    _9_ 726 _13
-    __1 _54 9_7
-
-    574 289 _31
-    ___ _1_ 2__
-    123 675 _98
-
-    __8 _37 1_4
-    _1_ 842 _59
-    349 5__ _8_
-";
-
-const BOARD_RECT: Rectangle = Rectangle {
-    x: 0.0,
-    y: 0.0,
-    width: 600.0,
-    height: 600.0,
-};
+fn load_board<P>(path: P) -> Board
+where
+    P: AsRef<std::path::Path>,
+{
+    let contents = std::fs::read_to_string(path).unwrap();
+    contents.parse().unwrap()
+}
 
 fn main() {
+    let mut board_rect = Rectangle::new(0.0, 0.0, 512.0, 512.0);
+
     let (mut rl, thread) = raylib::init()
-        .size(BOARD_RECT.width as i32, BOARD_RECT.height as i32)
+        .size(board_rect.width as i32, board_rect.height as i32)
+        .resizable()
         .build();
 
-    let mut board = BOARD.parse::<Board>().unwrap();
+    let mut board = load_board("boards/medium-1.txt");
     let mut solver = Solver::new();
+    let graphics_state = GraphicsState::new();
 
-    rl.set_target_fps(30);
+    rl.set_target_fps(120);
 
     while !rl.window_should_close() {
         solver.step(&mut board);
 
+        let screen_width = rl.get_screen_width();
+        let screen_height = rl.get_screen_height();
+        let smaller = std::cmp::min(screen_width, screen_height);
+        board_rect.width = smaller as f32;
+        board_rect.height = smaller as f32;
+
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::WHITE);
-        board::draw_board(&mut d, BOARD_RECT, &board);
+        graphics_state.draw_board(&mut d, board_rect, &board);
+
+        // draw_ui(&mut d);
     }
 }
