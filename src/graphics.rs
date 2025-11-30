@@ -2,36 +2,6 @@ use raylib::prelude::*;
 
 use crate::board::{Board, Entry};
 
-const COLOR_ONE: Color = Color::DARKRED;
-const COLOR_TWO: Color = Color::ORANGE;
-const COLOR_THREE: Color = Color::LIGHTBLUE;
-const COLOR_FOUR: Color = Color::TURQUOISE;
-const COLOR_FIVE: Color = Color::GREEN;
-const COLOR_SIX: Color = Color::HOTPINK;
-const COLOR_SEVEN: Color = Color::BLUE;
-const COLOR_EIGHT: Color = Color::MAGENTA;
-const COLOR_NINE: Color = Color::PURPLE;
-
-/// Get the color of a digit.
-///
-/// Every digit from 1 to 9 has a particular color associated with it to help with visually parsing
-/// the board. This function returns the color associated with that digit, or [`None`] if the given
-/// number is outside of the range \[1, 9\].
-const fn color_from_digit(digit: i32) -> Option<Color> {
-    match digit {
-        1 => Some(COLOR_ONE),
-        2 => Some(COLOR_TWO),
-        3 => Some(COLOR_THREE),
-        4 => Some(COLOR_FOUR),
-        5 => Some(COLOR_FIVE),
-        6 => Some(COLOR_SIX),
-        7 => Some(COLOR_SEVEN),
-        8 => Some(COLOR_EIGHT),
-        9 => Some(COLOR_NINE),
-        _ => None,
-    }
-}
-
 const LINE_WIDTH: f32 = 10.0;
 
 /// Draw the cell decoration.
