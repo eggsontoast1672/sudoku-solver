@@ -52,6 +52,12 @@ It would be really nice if one could run the program and then enter the board
 into the GUI. I have plans to implement this feature, but it will probably not
 make it into the first release build.
 
+Here is a summary of the keyboard controls:
+
+| Key   | Function           |
+| ----- | ------------------ |
+| Space | Start/stop solving |
+
 ## License
 
 This code is licensed under the MIT license.

@@ -3,6 +3,8 @@ use raylib::prelude::*;
 use crate::board::{Board, Entry};
 
 const LINE_WIDTH: f32 = 10.0;
+const FONT_SIZE: f32 = 32.0;
+const FONT_SPACING: f32 = 1.0;
 
 /// Draw the cell decoration.
 fn draw_cell(d: &mut RaylibDrawHandle, rect: Rectangle, color: Color) {
@@ -20,11 +22,9 @@ fn draw_cell(d: &mut RaylibDrawHandle, rect: Rectangle, color: Color) {
 }
 
 fn draw_cell_entry(d: &mut RaylibDrawHandle, rect: Rectangle, entry: Entry) {
-    const SIZE: f32 = 32.0;
-
     let font = d.get_font_default();
     let text = entry.to_string();
-    let dimensions = font.measure_text(&text, SIZE, 1.0);
+    let dimensions = font.measure_text(&text, FONT_SIZE, FONT_SPACING);
 
     d.draw_text_ex(
         font,
@@ -33,8 +33,8 @@ fn draw_cell_entry(d: &mut RaylibDrawHandle, rect: Rectangle, entry: Entry) {
             x: rect.x + (rect.width - dimensions.x) / 2.0,
             y: rect.y + (rect.height - dimensions.y) / 2.0,
         },
-        SIZE,
-        1.0,
+        FONT_SIZE,
+        FONT_SPACING,
         Color::BLACK,
     );
 }
@@ -132,5 +132,40 @@ impl GraphicsState {
         }
 
         Self::draw_board_outline(d, board_rect);
+    }
+}
+
+fn center_text(d: &mut RaylibDrawHandle, text: &str, rect: Rectangle) -> Vector2 {
+    let font = d.get_font_default();
+    let size = font.measure_text(text, FONT_SIZE, FONT_SPACING);
+
+    Vector2 {
+        x: rect.x + (rect.width - size.x) / 2.0,
+        y: rect.y + (rect.height - size.y) / 2.0,
+    }
+}
+
+pub enum SolvingStatus {
+    Going,
+    Stopped,
+}
+
+impl SolvingStatus {
+    pub const fn toggled(&self) -> Self {
+        match self {
+            Self::Going => Self::Stopped,
+            Self::Stopped => Self::Going,
+        }
+    }
+
+    pub fn draw(&self, d: &mut RaylibDrawHandle, rect: Rectangle) {
+        let (text, color) = match self {
+            Self::Going => ("Going...", Color::GREEN),
+            Self::Stopped => ("Stopped", Color::RED),
+        };
+        let pos = center_text(d, text, rect);
+
+        d.draw_rectangle_rec(rect, color);
+        d.draw_text(text, pos.x as i32, pos.y as i32, FONT_SIZE as i32, Color::BLACK);
     }
 }
