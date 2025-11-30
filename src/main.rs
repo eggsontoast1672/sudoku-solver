@@ -1,3 +1,5 @@
+//! A program for solving Sudoku puzzles. See the top-level README.md for more information.
+
 #![warn(missing_docs)]
 
 use raylib::prelude::*;
@@ -24,13 +26,16 @@ fn load_board() -> Board {
 }
 
 fn main() {
+    // I'm putting this before the call to raylib::init since if there is an error on the CLI
+    // level, I do not want raylib to be initialized at all.
+    let mut board = load_board();
+    
     let mut board_rect = Rectangle::new(0.0, 0.0, 512.0, 512.0);
     let (mut rl, thread) = raylib::init()
         .size(board_rect.width as i32, board_rect.height as i32)
         .resizable()
         .build();
 
-    let mut board = load_board();
     let mut solver = Solver::new();
     let graphics_state = GraphicsState::new();
 
@@ -48,7 +53,5 @@ fn main() {
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::WHITE);
         graphics_state.draw_board(&mut d, board_rect, &board);
-
-        // draw_ui(&mut d);
     }
 }

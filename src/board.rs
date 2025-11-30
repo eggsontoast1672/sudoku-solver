@@ -1,10 +1,16 @@
+//! Functions and structures related to Sudoku boards. Some of those items include structures for
+//! representing cells on the board and the board itself, as well as board manipulation
+//! functionality.
+
 use std::collections::HashSet;
 use std::hash::Hash;
 
 /// An entry for a cell of the Sudoku board.
 ///
 /// Each square of the board can contain a digit from 1 to 9. This enum ensures that no invalid
-/// digit can be represented inside of the board.
+/// digit can be represented inside of the board. I would hope that the individual members do not
+/// need their own documentation.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Entry {
@@ -44,6 +50,23 @@ impl Entry {
 impl TryFrom<i32> for Entry {
     type Error = ();
 
+    /// Attempt to convert a number to an [`Entry`].
+    ///
+    /// Since the board entries represent numbers, it is natural to want to convert to an entry
+    /// from a number. However, not all integers represent valid entries (in particular, only the
+    /// digits 1-9 represent valid entries). If the integer passed is in that range, then the
+    /// corresponding entry is returned. Otherwise, `Err(())` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sudoku_solver::board::Entry;
+    ///
+    /// assert_eq!(Entry::try_from(1), Ok(Entry::One));
+    /// assert_eq!(Entry::try_from(7), Ok(Entry::Seven));
+    /// assert_eq!(Entry::try_from(0), Err(()));
+    /// assert_eq!(Entry::try_from(10), Err(()));
+    /// ```
     fn try_from(value: i32) -> Result<Entry, Self::Error> {
         match value {
             1 => Ok(Entry::One),
@@ -116,6 +139,11 @@ where
 /// row, column, or 3x3 subgrid.
 #[derive(Debug)]
 pub struct Board {
+    /// The cells of the board.
+    ///
+    /// Each square of a Sudoku board is either empty, or occupied by a digit in the range 1-9.
+    /// Since these details are adequately reflected in the type of this field, it makes sense for
+    /// it to be public. This may change in the future.
     pub cells: [Option<Entry>; 81],
 }
 
