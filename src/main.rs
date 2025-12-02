@@ -30,9 +30,10 @@ fn main() {
     // level, I do not want raylib to be initialized at all.
     let mut board = load_board();
 
-    let mut board_rect = Rectangle::new(0.0, 0.0, 512.0, 512.0);
+    let mut board_rect = Rectangle::new(0.0, 0.0, 512.0, 563.2);
     let (mut rl, thread) = raylib::init()
         .size(board_rect.width as i32, board_rect.height as i32)
+        .title("Sudoku Solver")
         .resizable()
         .build();
 

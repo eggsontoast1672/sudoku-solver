@@ -5,6 +5,8 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
+use raylib::prelude::*;
+
 /// An entry for a cell of the Sudoku board.
 ///
 /// Each square of the board can contain a digit from 1 to 9. This enum ensures that no invalid
@@ -311,6 +313,25 @@ impl std::str::FromStr for Board {
         }
         Ok(board)
     }
+}
+
+/// Convert a cell's position to an index.
+///
+/// In board space, points are pairs of integers 0-8. In other words, a point is a pair of indices
+/// for rows and columns.
+fn cell_pos_to_index(x: usize, y: usize) -> Option<usize> {
+    if x < 9 && y < 9 {
+        Some(y * 9 + x)
+    } else {
+        None
+    }
+}
+
+/// Convert a point in screen space to a board index.
+pub fn point_to_index(rect: Rectangle, point: Vector2) -> Option<usize> {
+    let x = ((point.x - rect.x) / 9.0) as usize;
+    let y = ((point.y - rect.y) / 9.0) as usize;
+    cell_pos_to_index(x, y)
 }
 
 #[cfg(test)]

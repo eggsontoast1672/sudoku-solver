@@ -1,6 +1,6 @@
 use raylib::prelude::*;
 
-use crate::board::{Board, Entry};
+use crate::board::{Board, Entry, point_to_index};
 
 const LINE_WIDTH: f32 = 10.0;
 const FONT_SIZE: f32 = 32.0;
@@ -108,10 +108,16 @@ impl GraphicsState {
                     height: cell_width,
                 };
 
+                let mouse_pos = d.get_mouse_position();
+
                 if let Some(selected_index) = self.selected_square
                     && selected_index == index
                 {
                     draw_cell(d, cell_rect, Color::RED);
+                } else if let Some(mouse_index) = point_to_index(board_rect, mouse_pos)
+                    && mouse_index == index
+                {
+                    draw_cell(d, cell_rect, Color::LIGHTPINK);
                 } else {
                     draw_cell(d, cell_rect, Color::RAYWHITE);
                 }
@@ -166,6 +172,12 @@ impl SolvingStatus {
         let pos = center_text(d, text, rect);
 
         d.draw_rectangle_rec(rect, color);
-        d.draw_text(text, pos.x as i32, pos.y as i32, FONT_SIZE as i32, Color::BLACK);
+        d.draw_text(
+            text,
+            pos.x as i32,
+            pos.y as i32,
+            FONT_SIZE as i32,
+            Color::BLACK,
+        );
     }
 }
