@@ -5,7 +5,11 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
+use itertools::Itertools;
+
 use raylib::prelude::*;
+
+use crate::ui::{self, Widget};
 
 /// An entry for a cell of the Sudoku board.
 ///
@@ -110,7 +114,7 @@ impl std::fmt::Display for Entry {
 /// Convert a big index into a small index.
 ///
 /// This function converts the index of a big cell into the index of a small cell by taking the
-/// index of the upper-rightmost small cell of the big cell. The bevavior is not defined if the
+/// index of the upper-rightmost small cell of the big cell. The behavior is not defined if the
 /// supplied index is greater than 8, so do not rely on the output of the function in that case.
 fn as_small_index(big_index: usize) -> usize {
     match big_index {
@@ -141,18 +145,24 @@ where
 /// row, column, or 3x3 subgrid.
 #[derive(Debug)]
 pub struct Board {
-    /// The cells of the board.
-    ///
-    /// Each square of a Sudoku board is either empty, or occupied by a digit in the range 1-9.
-    /// Since these details are adequately reflected in the type of this field, it makes sense for
-    /// it to be public. This may change in the future.
-    pub cells: [Option<Entry>; 81],
+    /// The cells of the board. Each square of a Sudoku board is either empty, or occupied by a
+    /// digit in the range 1-9.
+    cells: [Option<Entry>; 81],
+
+    /// This variable is for the UI, it controls which square is currently selected. The selected
+    /// square is highlighted with a red border, and the user can edit the number in that square.
+    selected_square: Option<usize>,
 }
 
 impl Board {
     /// Creates a new empty board.
+    ///
+    /// All of the squares in the board start out unfilled, and no square is selected initially.
     pub const fn empty() -> Board {
-        Board { cells: [None; 81] }
+        Board {
+            cells: [None; 81],
+            selected_square: None,
+        }
     }
 
     /// Retrieve the entry in a particular cell.
@@ -176,6 +186,7 @@ impl Board {
         }
     }
 
+    /// Retrieve an entry by index.
     pub const fn get_cell_index(&self, index: usize) -> Option<Entry> {
         self.cells[index]
     }
@@ -226,8 +237,8 @@ impl Board {
     ///
     /// The board has exactly 81 cells, so this function will do nothing if the index is greater
     /// than 80. Additionally, all cells must be in the range [1, 9], so if the supplied entry is
-    /// not in that range, the funcion will do nothing. To clear the entry at the target index, you
-    /// can pass [`None`].
+    /// not in that range, the function will do nothing. To clear the entry at the target index,
+    /// you can pass [`None`].
     pub fn set_cell_index(&mut self, index: usize, entry: Option<Entry>) {
         if index < self.cells.len() {
             self.cells[index] = entry;
@@ -265,6 +276,18 @@ impl Board {
         }
 
         result
+    }
+
+    /// Get the color of the cell at the supplied index.
+    fn get_cell_color(&self, d: &mut RaylibDrawHandle, rect: Rectangle, index: usize) -> Color {
+        let mouse_position = d.get_mouse_position();
+        let mouse_index = point_to_index(rect, mouse_position);
+
+        match (self.selected_square, mouse_index) {
+            (Some(_), _) => Color::RED,
+            (None, Some(mouse_idx)) if mouse_idx == index => Color::LIGHTPINK,
+            _ => Color::RAYWHITE,
+        }
     }
 }
 
@@ -315,6 +338,118 @@ impl std::str::FromStr for Board {
     }
 }
 
+/// Compute the size of each cell.
+const fn compute_cell_size(board_size: Vector2) -> Vector2 {
+    Vector2 {
+        x: (board_size.x - ui::LINE_WIDTH * 4.0) / 9.0,
+        y: (board_size.y - ui::LINE_WIDTH * 4.0) / 9.0,
+    }
+}
+
+/// Get the line width offset for the specified cell.
+///
+/// In order to get the cells lined up correctly inside of the grid, this function will account
+/// for the line width and return the corrected position. That was a horrible way of explaining
+/// it, but nobody is looking at this code anyway.
+fn line_width_offset(cell_index: usize) -> f32 {
+    (cell_index / 3 + 1) as f32 * ui::LINE_WIDTH
+}
+
+fn compute_cell_rect(row: usize, column: usize, cell_size: Vector2) -> Rectangle {
+    Rectangle {
+        x: column as f32 * cell_size.x + line_width_offset(column),
+        y: row as f32 * cell_size.y + line_width_offset(row),
+        width: cell_size.x,
+        height: cell_size.y,
+    }
+}
+
+/// Draw the cell decoration.
+fn draw_cell(d: &mut RaylibDrawHandle, rect: Rectangle, color: Color) {
+    let padding_x = rect.width / 10.0;
+    let padding_y = rect.height / 10.0;
+    let inner_rect = Rectangle {
+        x: rect.x + padding_x,
+        y: rect.y + padding_y,
+        width: rect.width - padding_x * 2.0,
+        height: rect.height - padding_y * 2.0,
+    };
+
+    d.draw_rectangle_rec(rect, color);
+    d.draw_rectangle_rec(inner_rect, Color::WHITE);
+}
+
+fn draw_cell_entry(d: &mut RaylibDrawHandle, rect: Rectangle, entry: Entry) {
+    let font = d.get_font_default();
+    let text = entry.to_string();
+    let dimensions = font.measure_text(&text, ui::FONT_SIZE, ui::FONT_SPACING);
+
+    d.draw_text_ex(
+        font,
+        &text,
+        Vector2 {
+            x: rect.x + (rect.width - dimensions.x) / 2.0,
+            y: rect.y + (rect.height - dimensions.y) / 2.0,
+        },
+        ui::FONT_SIZE,
+        ui::FONT_SPACING,
+        Color::BLACK,
+    );
+}
+
+/// Draw the board outline.
+///
+/// The outline helps to see the big cells. Without it, the small cells floating around on the
+/// screen are pretty hard to visually parse.
+fn draw_board_outline(d: &mut RaylibDrawHandle, rect: Rectangle) {
+    // This looks odd, but it just makes sure that the lines are evenly spaced horizontally and
+    // vertically.
+    let x_jump = (rect.width - ui::LINE_WIDTH) / 3.0;
+    for x in 0..4 {
+        d.draw_rectangle_rec(
+            Rectangle {
+                x: x as f32 * x_jump,
+                y: 0.0,
+                width: ui::LINE_WIDTH,
+                height: rect.height,
+            },
+            Color::BLACK,
+        );
+    }
+
+    let y_jump = (rect.height - ui::LINE_WIDTH) / 3.0;
+    for y in 0..4 {
+        d.draw_rectangle_rec(
+            Rectangle {
+                x: 0.0,
+                y: y as f32 * y_jump,
+                width: rect.width,
+                height: ui::LINE_WIDTH,
+            },
+            Color::BLACK,
+        );
+    }
+}
+
+impl Widget for Board {
+    fn draw(&self, d: &mut RaylibDrawHandle, rect: Rectangle) {
+        let cell_size = compute_cell_size(Vector2::new(rect.width, rect.height));
+
+        for (row, column) in (0..9).cartesian_product(0..9) {
+            let index = (row * 9) + (column % 9);
+            let cell_rect = compute_cell_rect(row, column, cell_size);
+            let cell_color = self.get_cell_color(d, rect, index);
+
+            draw_cell(d, cell_rect, cell_color);
+            if let Some(entry) = self.get_cell_index(index) {
+                draw_cell_entry(d, cell_rect, entry);
+            }
+        }
+
+        draw_board_outline(d, rect);
+    }
+}
+
 /// Convert a cell's position to an index.
 ///
 /// In board space, points are pairs of integers 0-8. In other words, a point is a pair of indices
@@ -329,9 +464,15 @@ fn cell_pos_to_index(x: usize, y: usize) -> Option<usize> {
 
 /// Convert a point in screen space to a board index.
 pub fn point_to_index(rect: Rectangle, point: Vector2) -> Option<usize> {
-    let x = ((point.x - rect.x) / 9.0) as usize;
-    let y = ((point.y - rect.y) / 9.0) as usize;
-    cell_pos_to_index(x, y)
+    let board_size = Vector2::new(rect.width, rect.height);
+    let relative_point = point - Vector2::new(rect.x, rect.y);
+    let point_no_grid = ui::without_gridlines(board_size, relative_point)?;
+    let cell_size = compute_cell_size(board_size);
+    
+    cell_pos_to_index(
+        (point_no_grid.x / cell_size.x) as usize,
+        (point_no_grid.y / cell_size.y) as usize,
+    )
 }
 
 #[cfg(test)]

@@ -5,8 +5,9 @@
 use raylib::prelude::*;
 
 use sudoku_solver::board::Board;
-use sudoku_solver::graphics::{GraphicsState, SolvingStatus};
+use sudoku_solver::graphics::SolvingStatus;
 use sudoku_solver::solver::Solver;
+use sudoku_solver::ui::Widget;
 
 fn load_board() -> Board {
     let mut args = std::env::args();
@@ -34,12 +35,28 @@ fn main() {
     let (mut rl, thread) = raylib::init()
         .size(board_rect.width as i32, board_rect.height as i32)
         .title("Sudoku Solver")
-        .resizable()
+        // .resizable()
         .build();
 
-    let mut solver = Solver::new();
     let mut status = SolvingStatus::Stopped;
-    let graphics_state = GraphicsState::new();
+    let widget_rects = [
+        Rectangle {
+            x: 0.0,
+            y: 0.0,
+            width: 512.0,
+            height: 512.0,
+        },
+        Rectangle {
+            x: 0.0,
+            y: 512.0,
+            width: 512.0,
+            height: 51.2,
+        },
+    ];
+
+    let mut solver = Solver::new();
+
+    // Set up a board widget and solvingstate widget
 
     rl.set_target_fps(120);
 
@@ -58,21 +75,10 @@ fn main() {
         board_rect.width = smaller as f32;
         board_rect.height = smaller as f32;
 
-        let active_area_width = board_rect.width;
-        let active_area_height = active_area_width / 10.0;
-
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::WHITE);
-        graphics_state.draw_board(&mut d, board_rect, &board);
 
-        status.draw(
-            &mut d,
-            Rectangle {
-                x: board_rect.x,
-                y: board_rect.y + board_rect.width,
-                width: active_area_width,
-                height: active_area_height,
-            },
-        );
+        board.draw(&mut d, widget_rects[0]);
+        status.draw(&mut d, widget_rects[1]);
     }
 }
